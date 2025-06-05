@@ -1,89 +1,58 @@
-import time
+import timeit
 import matplotlib.pyplot as plt
+import pandas as pd
+import math
 
-
-def factorial(k, memo={}):
-    if k in memo:
-        return memo[k]
-    if k == 0 or k == 1:
-        memo[k] = 1
-        return 1
-    memo[k] = k * factorial(k - 1, memo)
-    return memo[k]
-
-
-def F_recursive(n, memo_F, memo_G):
-    if n in memo_F:
-        return memo_F[n]
-    if n == 1:
-        memo_F[1] = 1
-        return 1
-    sign = (-1) ** n
-    memo_F[n] = sign * (F_recursive(n - 1, memo_F, memo_G) - 2 * G_recursive(n - 1, memo_F, memo_G))
-    return memo_F[n]
-
-def G_recursive(n, memo_F, memo_G):
-    if n in memo_G:
-        return memo_G[n]
-    if n == 1:
-        memo_G[1] = 1
-        return 1
-    memo_G[n] = F_recursive(n - 1, memo_F, memo_G) / factorial(2 * n) + 2 * G_recursive(n - 1, memo_F, memo_G)
-    return memo_G[n]
-
- 
-def F_iterative(n):
+# Рекурсивная реализация
+def F_rec(n):
     if n == 1:
         return 1
+    sign = -1 if n % 2 == 1 else 1
+    return sign * (2 * F_rec(n - 1) - G_rec(n - 1))
+
+def G_rec(n):
+    if n == 1:
+        return 1
+    return 2 * F_rec(n - 1) / math.factorial(2 * n) + G_rec(n - 1)
+
+# Итерационная реализация
+def F_G_iter(n):
     F = [0] * (n + 1)
-    G = [0.0] * (n + 1)
-    F[1] = 1
-    G[1] = 1.0
+    G = [0] * (n + 1)
+    F[1] = G[1] = 1
+
+    factorial = math.factorial(2)  # (2 * 1)! = 2
+
     for i in range(2, n + 1):
-        sign = (-1) ** i
-        F[i] = sign * (F[i - 1] - 2 * G[i - 1])
-        fact_2i = factorial(2 * i)
-        G[i] = F[i - 1] / fact_2i + 2 * G[i - 1]
-    return F[n]
+        sign = -1 if i % 2 == 1 else 1
+        F[i] = sign * (2 * F[i - 1] - G[i - 1])
+        factorial *= (2 * i - 1) * (2 * i)  # (2n)! = (2n - 1)*(2n)
+        G[i] = 2 * F[i - 1] / factorial + G[i - 1]
 
+    return F[n], G[n]
 
-def measure_time(func, n, *args):
-    start = time.perf_counter()
-    result = func(n, *args)
-    end = time.perf_counter()
-    return result, end - start
+# Сравнение времени выполнения
+results = []
+for i in range(2, 20):
+    try:
+        t_rec = timeit.timeit(lambda: F_rec(i), number=1)
+    except RecursionError:
+        t_rec = None
+    t_itr = timeit.timeit(lambda: F_G_iter(i), number=1)
+    results.append((i, t_rec, t_itr))
 
+# Таблица
+df = pd.DataFrame(results, columns=["n", "Recursive Time (s)", "Iterative Time (s)"])
+print(df)
 
-n_values = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30]
-recursive_times = []
-iterative_times = []
-recursive_values = []
-iterative_values = []
-
-print("n\tРекурсия\t\tВремя (рек)\tИтерация\t\tВремя (итер)")
-print("-" * 80)
-for n in n_values:
-    
-    memo_F = {}
-    memo_G = {}
-    res_rec, time_rec = measure_time(F_recursive, n, memo_F, memo_G)
-    res_iter, time_iter = measure_time(F_iterative, n)
-    
-    recursive_times.append(time_rec)
-    iterative_times.append(time_iter)
-    recursive_values.append(res_rec)
-    iterative_values.append(res_iter)
-    
-    print(f"{n}\t{res_rec:.6f}\t\t{time_rec:.6f}\t{res_iter:.6f}\t\t{time_iter:.6f}")
-
-
+# График
 plt.figure(figsize=(10, 6))
-plt.plot(n_values, recursive_times, label="Рекурсия (с мемоизацией)", marker='o')
-plt.plot(n_values, iterative_times, label="Итерация", marker='s')
+plt.plot(df["n"], df["Recursive Time (s)"], label="Рекурсия", marker='o', color='blue')
+plt.plot(df["n"], df["Iterative Time (s)"], label="Итерация", marker='s', color='green')
 plt.xlabel("n")
-plt.ylabel("Время выполнения (сек)")
-plt.title("Сравнение времени выполнения рекурсивного и итеративного подходов")
+plt.ylabel("Время (сек)")
+plt.title("Сравнение времени выполнения: рекурсивный vs итеративный подход")
 plt.legend()
 plt.grid(True)
-plt.savefig("time_comparison.png")
+plt.tight_layout()
 plt.show()
