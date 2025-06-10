@@ -1,86 +1,74 @@
-import timeit
-from itertools import product
+import time
+from itertools import permutations
 
-# Названия фруктов
-fruits = ['Яблоко', 'Банан', 'Апельсин', 'Груша', 'Киви']
-DAYS = 7
+# Список всех фруктов (7 штук)
+fruits = ["яблоко", "банан", "груша", "апельсин", "киви", "манго", "персик"]
+# Ограничение: используем только 4 фрукта
+selected_fruits = fruits[:4]  # Берём первые 4: яблоко, банан, груша, апельсин
 
-# Цена каждого фрукта (в рублях)
-fruit_prices = {
-    'Яблоко': 12,
-    'Банан': 11,
-    'Апельсин': 3,
-    'Груша': 4,
-    'Киви': 14,
-    'Виноград': 18,
-    'Слива': 6
-}
+# Целевая функция: считаем количество яблок в меню
+def count_apples(menu):
+    return menu.count("яблоко")  # Возвращает, сколько раз яблоко в меню
 
-#Ограничение на общую цену меню за 7 дней
-MAX_PRICE = 85
+# Вариант 1: Алгоритмический (простой цикл)
+def simple_loop():
+    print("Вариант 1: Алгоритмический (цикл)")
+    menu = []
+    # Для 7 дней выбираем фрукты по очереди, повторяя
+    for i in range(7):
+        fruit = selected_fruits[i % 4]  # Циклически берём из 4 фруктов
+        menu.append(fruit)
+        print(f"День {i+1}: {fruit}")
+    apple_count = count_apples(menu)
+    print(f"Количество яблок: {apple_count}")
+    print()
+    return apple_count
 
-#Два метода генерации меню
+# Вариант 2: С использованием permutations
+def using_permutations():
+    print("Вариант 2: С использованием permutations")
+    best_menu = None
+    min_apples = float('inf')  # Начинаем с бесконечности, чтобы найти минимум
+    # Генерируем перестановки из 4 фруктов для 4 дней
+    perms = list(permutations(selected_fruits, 4))
+    # Проверяем только первые 10 комбинаций для скорости
+    for perm in perms[:10]:
+        # Создаём меню на 7 дней, повторяя фрукты
+        menu = list(perm) + [perm[i % 4] for i in range(3)]  # Дополняем до 7 дней
+        apple_count = count_apples(menu)
+        if apple_count < min_apples:
+            min_apples = apple_count
+            best_menu = menu
+        print(f"Вариант меню: {menu}, Яблок: {apple_count}")
+    print(f"\nЛучшее меню: {best_menu}")
+    print(f"Минимальное количество яблок: {min_apples}")
+    print()
+    return min_apples
 
-def algorithmic_menus(fruits, days):
-    if days == 1:
-        return [(f,) for f in fruits]
-    prev = algorithmic_menus(fruits, days - 1)
-    return [(f,) + p for f in fruits for p in prev]
+# Измеряем время выполнения для Варианта 1
+start_time = time.time()
+apples_loop = simple_loop()
+end_time = time.time()
+time_loop = end_time - start_time
+print(f"Время выполнения Варианта 1: {time_loop:.6f} секунд")
 
-def pythonic_menus(fruits, days):
-    return list(product(fruits, repeat=days))
+# Измеряем время выполнения для Варианта 2
+start_time = time.time()
+apples_perms = using_permutations()
+end_time = time.time()
+time_perms = end_time - start_time
+print(f"Время выполнения Варианта 2: {time_perms:.6f} секунд")
 
-# ---------- Сравнение времени ----------
-time_alg = timeit.timeit(lambda: algorithmic_menus(fruits, DAYS), number=1)
-time_py = timeit.timeit(lambda: pythonic_menus(fruits, DAYS), number=1)
-
-menus_alg = algorithmic_menus(fruits, DAYS)
-menus_py = pythonic_menus(fruits, DAYS)
-
-print(f"\n[1] Алгоритмический метод: {len(menus_alg)} вариантов, время: {time_alg:.4f} сек")
-print(f"[2] Python itertools.product: {len(menus_py)} вариантов, время: {time_py:.4f} сек")
-
-if time_alg < time_py:
-    print("→ Алгоритмический метод быстрее.\n")
+# Сравнение времени
+if time_loop < time_perms:
+    print("Вариант 1 (цикл) быстрее!")
 else:
-    print("→ Python-метод быстрее.\n")
+    print("Вариант 2 (permutations) быстрее!")
 
-print("--- Примеры первых 10 меню ---")
-for i, menu in enumerate(menus_py[:10], 1):
-    print(f"{i}) {' | '.join(menu)}")
-
-# ---------- ЧАСТЬ 2: Ограничения и оптимизация ----------
-
-def menu_price(menu):
-    return sum(fruit_prices[f] for f in menu)
-
-def is_valid(menu):
-    return all(menu.count(fruit) <= 3 for fruit in fruits) and menu_price(menu) <= MAX_PRICE
-
-def count_unique(menu):
-    return len(set(menu))
-
-valid_menus = [m for m in menus_py if is_valid(m)]
-
-max_variety = max(count_unique(m) for m in valid_menus)
-optimal_menus = [m for m in valid_menus if count_unique(m) == max_variety]
-
-print(f"\nНайдено {len(valid_menus)} допустимых меню (повторы ≤ 3, цена ≤ {MAX_PRICE} руб).")
-print(f"Максимальное разнообразие фруктов в меню: {max_variety}")
-print(f"Количество оптимальных меню: {len(optimal_menus)}\n")
-
-print("--- Примеры оптимальных меню ---")
-for i, menu in enumerate(optimal_menus[:5], 1):
-    price = menu_price(menu)
-    print(f"{i}) {' | '.join(menu)} — {price} руб.")
-
-# ---------- Финальный шаг: самое дешёвое из самых разнообразных меню ----------
-
-if optimal_menus:
-    best_price = min(menu_price(m) for m in optimal_menus)
-    best_menu = [m for m in optimal_menus if menu_price(m) == best_price][0]  # Берем первое из лучших
-    print("\n=== Самое оптимальное меню (макс. разнообразие + мин. цена) ===")
-    print(f"{' | '.join(best_menu)} — {best_price} руб.")
+# Сравнение по количеству яблок
+if apples_loop < apples_perms:
+    print("Вариант 1 даёт меньше яблок!")
+elif apples_perms < apples_loop:
+    print("Вариант 2 даёт меньше яблок!")
 else:
-    print("Нет ни одного меню, удовлетворяющего всем условиям.")
-
+    print("Оба варианта дают одинаковое количество яблок!")
