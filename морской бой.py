@@ -57,8 +57,9 @@ class Game:
         self.sizes=[4,3,3,2,2,2,1,1,1,1]
         self.player=Board()
         self.computer=Board()
-        self.targets=[(r,c) for r in range(10) for c in range(10)]
-        random.shuffle(self.targets)
+        self.targets=[]  # тут хранятся попадания 
+        self.hunt_mode=False
+        self.hunt_cells=[]
         self.phase='setup'; self.player_turn=True
         self.setup_idx=0; self.horiz=True
     def place_player_ship(self,r,c):
@@ -74,6 +75,8 @@ class Game:
         self.start_game()
     def start_game(self):
         self.computer.random_placement(self.sizes)
+        self.targets=[(r,c) for r in range(10) for c in range(10)]
+        random.shuffle(self.targets)
         self.phase='playing'; self.player_turn=True
     def player_shoot(self,r,c):
         if not self.player_turn or self.phase!='playing': return None
@@ -82,9 +85,25 @@ class Game:
         if result=='miss': self.player_turn=False
         return result
     def computer_shoot(self):
-        if self.player_turn or not self.targets: return None,None
-        r,c=self.targets.pop()
+        if self.player_turn: return None,None
+        #добивание 
+        if self.hunt_mode and self.hunt_cells:
+            r,c=self.hunt_cells.pop(0)
+        else:
+            if not self.targets: return None,None
+            r,c=self.targets.pop(0)
         result=self.player.shoot(r,c)
+        if result=='hit':
+            self.hunt_mode=True
+            # стреляет по 4 направлениям 
+            for dr,dc in [(0,1),(0,-1),(1,0),(-1,0)]:
+                nr,nc=r+dr,c+dc
+                if 0<=nr<10 and 0<=nc<10 and (nr,nc) not in self.player.shots:
+                    if (nr,nc) in self.targets: self.targets.remove((nr,nc))
+                    if (nr,nc) not in self.hunt_cells: self.hunt_cells.append((nr,nc))
+        elif result=='sunk':
+            self.hunt_mode=False
+            self.hunt_cells=[]
         if self.player.all_sunk(): self.phase='ended'; return (r,c),'lose'
         if result=='miss': self.player_turn=True
         return (r,c),result
@@ -110,7 +129,7 @@ class GUI:
         tk.Label(rf,text="Вражеские воды",font=('Arial',12,'bold')).pack()
         self.cc=tk.Canvas(rf,width=400,height=400); self.cc.pack()
         self.cc.bind('<Button-1>',self.c_click)
-        self.cc.bind('<Motion>', self.c_hover)  # Наведение на поле врага
+        self.cc.bind('<Motion>', self.c_hover)
         self.hover_rect=None
         self.draw()
     
@@ -167,7 +186,7 @@ class GUI:
         self.draw_board(self.cc,self.game.computer,False)
         if 0<=r<10 and 0<=c<10 and (r,c) not in self.game.computer.shots:
             x1,y1=c*self.cell,r*self.cell; x2,y2=x1+self.cell,y1+self.cell
-            self.hover_rect=self.cc.create_rectangle(x1,y1,x2,y2,fill='green',outline='black',stipple='gray50')
+            self.hover_rect=self.cc.create_rectangle(x1,y1,x2,y2,fill='yellow',outline='black',stipple='gray50')
     
     def comp_turn(self):
         if self.game.phase!='playing' or self.game.player_turn: return
