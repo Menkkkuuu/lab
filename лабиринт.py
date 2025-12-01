@@ -34,7 +34,7 @@ canvas.pack()
 # матрица лабиринта
 maze = [['#'] * grid_w for _ in range(grid_h)]
 
-# генерация лабиринта (рекурсивный DFS, как было)
+# генерация лабиринта 
 def carve(x, y):
     dirs = [(2, 0), (-2, 0), (0, 2), (0, -2)]
     random.shuffle(dirs)
@@ -161,3 +161,4 @@ def show_path():
 
 root.after(200, lambda: dfs(*start))
 root.mainloop()
+
