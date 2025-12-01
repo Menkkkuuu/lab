@@ -1,4 +1,4 @@
-import tkinter as tk
+import tkinter as tk 
 import random
 
 grid_w, grid_h = 31, 31
@@ -30,8 +30,11 @@ root.geometry(f"+{x}+{y}")
 
 canvas = tk.Canvas(root, width=win_w, height=win_h, bg=theme["bg"], highlightthickness=0)
 canvas.pack()
+
+# матрица лабиринта
 maze = [['#'] * grid_w for _ in range(grid_h)]
 
+# генерация лабиринта (рекурсивный DFS, как было)
 def carve(x, y):
     dirs = [(2, 0), (-2, 0), (0, 2), (0, -2)]
     random.shuffle(dirs)
@@ -46,6 +49,7 @@ start = (grid_w // 2, grid_h // 2)
 maze[start[1]][start[0]] = ' '
 carve(*start)
 
+# выход всегда справа
 exit_x = grid_w - 1
 exit_y = start[1]
 for y in range(grid_h):
@@ -55,7 +59,7 @@ for y in range(grid_h):
 exit_cell = (exit_x, exit_y)
 maze[exit_y][exit_x] = 'E'
 
-
+# тема квадратика 
 pat = [
     "..X..",
     ".XXX.",
@@ -99,27 +103,46 @@ def draw_maze():
     root.update()
 
 draw_maze()
-queue = [start]
-seen = {start}
-parent = {}
-found = None
 
-def step():
+
+seen = set()
+parent = {}
+found = None  
+
+def dfs(x, y):
     global found
-    if queue and not found:
-        x, y = queue.pop(0)
-        for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < grid_w and 0 <= ny < grid_h and maze[ny][nx] != '#' and (nx, ny) not in seen:
-                seen.add((nx, ny))
-                parent[(nx, ny)] = (x, y)
-                draw_tile(nx * cell, ny * cell, theme["floor"], theme["visit"])
-                if maze[ny][nx] == 'E':
-                    found = (nx, ny)
-                    show_path()
-                    return
-                queue.append((nx, ny))
-        root.after(5, step)
+    if found is not None:  
+        return
+
+    seen.add((x, y))
+
+    # подсветка посещенной клетки 
+    draw_tile(x * cell, y * cell, theme["floor"], theme["visit"])
+    sx, sy = start
+    draw_tile(sx * cell, sy * cell, theme["floor"], theme["start"])
+    ex, ey = exit_cell
+    draw_tile(ex * cell, ey * cell, theme["floor"], theme["exit"])
+    root.update()
+
+    # выход - конец 
+    if maze[y][x] == 'E':
+        found = (x, y)
+        show_path()
+        return
+
+    # 4 направления 
+    for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+        nx, ny = x + dx, y + dy
+        if (
+            0 <= nx < grid_w
+            and 0 <= ny < grid_h
+            and maze[ny][nx] != '#'
+            and (nx, ny) not in seen
+        ):
+            parent[(nx, ny)] = (x, y)
+            dfs(nx, ny)
+            if found is not None:
+                return
 
 def show_path():
     cur = found
@@ -135,5 +158,6 @@ def show_path():
     draw_tile(ex * cell, ey * cell, theme["floor"], theme["exit"])
     root.update()
 
-root.after(200, step)
+
+root.after(200, lambda: dfs(*start))
 root.mainloop()
