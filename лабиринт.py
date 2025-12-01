@@ -1,193 +1,139 @@
-# -*- coding: utf-8 -*-
 import tkinter as tk
-from collections import deque
 import random
 
+grid_w, grid_h = 31, 31
+cell = 18
+theme = {
+    "bg": "#0a0f1f",
+    "wall_dark": "#1e2b45",
+    "wall_light": "#2f3f63",
+    "floor": "#0f1c33",
+    "floor_alt": "#132544",
+    "start": "#7fffd4",
+    "exit": "#ffda7b",
+    "visit": "#5ea2ff",
+    "path": "#c5e4ff",
+    "grid": "#11182b",
+}
 
-W, H = 31, 31
-CELL = 22  
+root = tk.Tk()
+root.title("лабиринт")
+
+# центрируем окно по экрану
+win_w = grid_w * cell
+win_h = grid_h * cell
+screen_w = root.winfo_screenwidth()
+screen_h = root.winfo_screenheight()
+x = (screen_w - win_w) // 2
+y = (screen_h - win_h) // 2
+root.geometry(f"+{x}+{y}")
+
+canvas = tk.Canvas(root, width=win_w, height=win_h, bg=theme["bg"], highlightthickness=0)
+canvas.pack()
+maze = [['#'] * grid_w for _ in range(grid_h)]
+
+def carve(x, y):
+    dirs = [(2, 0), (-2, 0), (0, 2), (0, -2)]
+    random.shuffle(dirs)
+    for dx, dy in dirs:
+        nx, ny = x + dx, y + dy
+        if 0 < nx < grid_w - 1 and 0 < ny < grid_h - 1 and maze[ny][nx] == '#':
+            maze[ny - dy // 2][nx - dx // 2] = ' '
+            maze[ny][nx] = ' '
+            carve(nx, ny)
+
+start = (grid_w // 2, grid_h // 2)
+maze[start[1]][start[0]] = ' '
+carve(*start)
+
+exit_x = grid_w - 1
+exit_y = start[1]
+for y in range(grid_h):
+    if maze[y][exit_x] == ' ':
+        exit_y = y
+        break
+exit_cell = (exit_x, exit_y)
+maze[exit_y][exit_x] = 'E'
 
 
-BG       = "#000000"
-FG_DIM   = "#0c5a2e"   # тусклые точки пола
-FG_WALL  = "#22a85a"   # стены
-FG_TEXT  = "#39d67b"   # обычные символы
-FG_SEEN  = "#66ffb2"   # посещённые
-FG_PATH  = "#c8ffdf"   # путь (ярче, но всё ещё зелёный)
+pat = [
+    "..X..",
+    ".XXX.",
+    "XXXXX",
+    ".XXX.",
+    "..X..",
+]
 
-
-CH_WALL  = "█"
-CH_FLOOR = "·"         
-CH_SEEN  = "•"
-CH_PATH  = "▓"
-CH_START = "S"
-CH_EXIT  = "E"
-
-class MazeApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Лабиринт — Terminal Mono")
-        wpx, hpx = W*CELL, H*CELL
-        self.canvas = tk.Canvas(root, width=wpx, height=hpx, bg=BG, highlightthickness=0)
-        self.canvas.pack(padx=6, pady=(6,0))
-        self.btn = tk.Button(root, text="Старт", command=self.start, padx=10, pady=6)
-        self.btn.pack(pady=(6,8))
-
-       
-        self.maze = None
-        self.start_xy = None
-        self.exit_xy = None
-
-      
-        self.queue = None
-        self.visited = None
-        self.parent = None
-        self.found = None
-        self.step_after = None
-        self.path_after = None
-
-        
-        self.cell_id = {}
-
-        self.new_maze()
-        self.draw_maze()
-
-    
-    def new_maze(self):
-        self.maze = [['#'] * W for _ in range(H)]
-        sx, sy = W//2, H//2
-        self.start_xy = (sx, sy)
-        self.maze[sy][sx] = ' '
-
-        def carve(x, y):
-            dirs = [(2,0), (-2,0), (0,2), (0,-2)]
-            random.shuffle(dirs)
-            for dx, dy in dirs:
-                nx, ny = x+dx, y+dy
-                if 0 < nx < W-1 and 0 < ny < H-1 and self.maze[ny][nx] == '#':
-                    self.maze[ny - dy//2][nx - dx//2] = ' '
-                    self.maze[ny][nx] = ' '
-                    carve(nx, ny)
-        carve(sx, sy)
-
-        edges = ([(x,0) for x in range(W)]
-                 + [(x,H-1) for x in range(W)]
-                 + [(0,y) for y in range(H)]
-                 + [(W-1,y) for y in range(H)])
-        free_edges = [p for p in edges if self.maze[p[1]][p[0]] == ' ']
-        if free_edges:
-            ex = random.choice(free_edges)
-        else:
-            side = random.choice(['top','bottom','left','right'])
-            if side == 'top': ex = (random.randrange(1,W-1,2), 0)
-            elif side == 'bottom': ex = (random.randrange(1,W-1,2), H-1)
-            elif side == 'left': ex = (0, random.randrange(1,H-1,2))
-            else: ex = (W-1, random.randrange(1,H-1,2))
-            self.maze[ex[1]][ex[0]] = ' '
-        self.exit_xy = ex
-        self.maze[ex[1]][ex[0]] = 'E'
-
-    
-    def center(self, x, y):
-        return (x*CELL + CELL//2, y*CELL + CELL//2)
-
-    def set_char(self, x, y, ch, fill):
-        item = self.cell_id.get((x, y))
-        if item is None:
-            cx, cy = self.center(x, y)
-            item = self.canvas.create_text(
-                cx, cy, text=ch, fill=fill,
-                font=("Consolas", CELL-6, "bold")
+def draw_tile(px, py, base, accent, outline=False):
+    step = cell // 5
+    canvas.create_rectangle(
+        px, py, px + cell, py + cell,
+        fill=theme["bg"],
+        outline=theme["grid"] if outline else ""
+    )
+    for j, line in enumerate(pat):
+        for i, ch in enumerate(line):
+            color = accent if ch == 'X' else base
+            canvas.create_rectangle(
+                px + i * step,
+                py + j * step,
+                px + i * step + step,
+                py + j * step + step,
+                outline="",
+                fill=color
             )
-            self.cell_id[(x, y)] = item
-        else:
-            self.canvas.itemconfigure(item, text=ch, fill=fill)
 
-   
-    def draw_maze(self):
-        self.canvas.delete("all")
-        self.cell_id.clear()
-        for y in range(H):
-            for x in range(W):
-                cell = self.maze[y][x]
-                if cell == '#':
-                    self.set_char(x, y, CH_WALL, FG_WALL)
-                elif cell == 'E':
-                    self.set_char(x, y, CH_EXIT, FG_TEXT)
-                else:
-                    self.set_char(x, y, CH_FLOOR, FG_DIM)
-        sx, sy = self.start_xy
-        self.set_char(sx, sy, CH_START, FG_TEXT)
-
-    
-    def start(self):
-        self.btn.config(state="disabled")
-        self.cancel_timers()
-        self.new_maze()
-        self.draw_maze()
-
-        self.queue = deque([self.start_xy])   # O(1)
-        self.visited = {self.start_xy}
-        self.parent = {}
-        self.found = None
-
-        self.step_after = self.root.after(0, self.bfs_step)
-
-    def bfs_step(self):
-        if not self.queue or self.found is not None:
-            if self.found:
-                self.animate_path()
+def draw_maze():
+    canvas.delete("all")
+    for y in range(grid_h):
+        for x in range(grid_w):
+            code = maze[y][x]
+            if code == '#':
+                draw_tile(x * cell, y * cell, theme["wall_dark"], theme["wall_light"], outline=True)
+            elif code == 'E':
+                draw_tile(x * cell, y * cell, theme["floor"], theme["exit"])
             else:
-                self.btn.config(state="normal")
-            return
+                draw_tile(x * cell, y * cell, theme["floor"], theme["floor_alt"])
+    sx, sy = start
+    draw_tile(sx * cell, sy * cell, theme["floor"], theme["start"])
+    root.update()
 
-        x, y = self.queue.popleft()
-        for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]:
-            nx, ny = x+dx, y+dy
-            if 0 <= nx < W and 0 <= ny < H and self.maze[ny][nx] != '#' and (nx, ny) not in self.visited:
-                self.visited.add((nx, ny))
-                self.parent[(nx, ny)] = (x, y)
-                
-                if (nx, ny) != self.start_xy and self.maze[ny][nx] != 'E':
-                    self.set_char(nx, ny, CH_SEEN, FG_SEEN)
+draw_maze()
+queue = [start]
+seen = {start}
+parent = {}
+found = None
 
-                if self.maze[ny][nx] == 'E':
-                    self.found = (nx, ny)
-                    break
-                self.queue.append((nx, ny))
+def step():
+    global found
+    if queue and not found:
+        x, y = queue.pop(0)
+        for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < grid_w and 0 <= ny < grid_h and maze[ny][nx] != '#' and (nx, ny) not in seen:
+                seen.add((nx, ny))
+                parent[(nx, ny)] = (x, y)
+                draw_tile(nx * cell, ny * cell, theme["floor"], theme["visit"])
+                if maze[ny][nx] == 'E':
+                    found = (nx, ny)
+                    show_path()
+                    return
+                queue.append((nx, ny))
+        root.after(5, step)
 
-        self.step_after = self.root.after(1, self.bfs_step)
+def show_path():
+    cur = found
+    path = []
+    while cur and cur != start:
+        path.append(cur)
+        cur = parent.get(cur)
+    for x, y in path:
+        draw_tile(x * cell, y * cell, theme["floor"], theme["path"])
+    sx, sy = start
+    draw_tile(sx * cell, sy * cell, theme["floor"], theme["start"])
+    ex, ey = exit_cell
+    draw_tile(ex * cell, ey * cell, theme["floor"], theme["exit"])
+    root.update()
 
-    def animate_path(self):
-        path = []
-        cur = self.found
-        while cur != self.start_xy:
-            path.append(cur)
-            cur = self.parent[cur]
-        path.reverse()
-
-        def draw_next(i=0):
-            if i >= len(path):
-                self.btn.config(state="normal")
-                return
-            x, y = path[i]
-            if (x, y) != self.exit_xy:
-                self.set_char(x, y, CH_PATH, FG_PATH)
-            self.path_after = self.root.after(10, lambda: draw_next(i+1))
-
-        draw_next()
-
-    def cancel_timers(self):
-        if self.step_after:
-            try: self.root.after_cancel(self.step_after)
-            except: pass
-            self.step_after = None
-        if self.path_after:
-            try: self.root.after_cancel(self.path_after)
-            except: pass
-            self.path_after = None
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = MazeApp(root)
-    root.mainloop()
+root.after(200, step)
+root.mainloop()
