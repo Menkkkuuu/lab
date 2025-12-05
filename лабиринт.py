@@ -32,7 +32,7 @@ for y in range(rows):
 def draw_cell(x, y, color):
     canvas.create_rectangle(x*cell, y*cell, x*cell+cell, y*cell+cell, fill=color, outline="gray")
 
-# рисуем весь лабиринт
+# рисуем лабиринт
 def draw_maze():
     for y in range(rows):
         for x in range(cols):
@@ -46,50 +46,45 @@ def draw_maze():
             else:
                 draw_cell(x, y, "white")
 
-visited = set()
-path = []
-found = False
+all_paths = []  # все пути к выходам
 
-def dfs(x, y):
-    global found
-    if found:
-        return
-
-    if (x, y) in visited:
-        return
-
+def dfs(x, y, visited, path):
     # проверка границ и стен
     if x < 0 or x >= cols or y < 0 or y >= rows:
         return
-    if maze[y][x] == 0:
+    if maze[y][x] == 0 or (x, y) in visited:
         return
 
     visited.add((x, y))
     path.append((x, y))
 
-    # рисуем посещение
-    draw_cell(x, y, "lightblue")
-    root.update()
-    root.after(100)
-
-    # нашли выход
+    # нашли выход - сохраняем путь
     if maze[y][x] == 'E':
-        found = True
-        # рисуем путь
-        for px, py in path:
-            draw_cell(px, py, "yellow")
-        root.update()
-        return
+        all_paths.append(path.copy())
+    else:
+        # идем в 4 стороны
+        dfs(x+1, y, visited, path)
+        dfs(x-1, y, visited, path)
+        dfs(x, y+1, visited, path)
+        dfs(x, y-1, visited, path)
 
-    # идем в 4 стороны
-    dfs(x+1, y)
-    dfs(x-1, y)
-    dfs(x, y+1)
-    dfs(x, y-1)
+    path.pop()
+    visited.remove((x, y))
 
-    if not found:
-        path.pop()
+def show_paths():
+    colors = ["yellow", "orange", "cyan", "pink", "lime"]
+    for i, p in enumerate(all_paths):
+        for x, y in p:
+            draw_cell(x, y, colors[i % len(colors)])
+    # перерисуем старт и выходы
+    for y in range(rows):
+        for x in range(cols):
+            if maze[y][x] == 'S':
+                draw_cell(x, y, "green")
+            elif maze[y][x] == 'E':
+                draw_cell(x, y, "red")
 
 draw_maze()
-root.after(500, lambda: dfs(start[0], start[1]))
+dfs(start[0], start[1], set(), [])
+root.after(500, show_paths)
 root.mainloop()
