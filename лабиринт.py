@@ -37,6 +37,7 @@ c.pack()
 
 start_i = start_j = None
 visited = []
+flag = False
 
 
 def find_start():
@@ -59,7 +60,7 @@ def draw():
             elif v == 'E':
                 color = "green" if (i, j) in visited else "red"
             else:
-                color = "orange" if (i, j) in visited else "white"  
+                color = "orange" if (i, j) in visited else "white"  # '1' или 'S'
             if start_i is not None and i == start_i and j == start_j:
                 color = "blue"  # вход
             x1, y1 = j * cell, i * cell
@@ -67,17 +68,21 @@ def draw():
 
 
 def dfs(i, j):
-    if maze[i][j] == '0' or (i, j) in visited:
+    global flag
+    if flag or maze[i][j] == '0' or (i, j) in visited:
         return 0
     visited.append((i, j))
-    exits = 1 if maze[i][j] == 'E' else 0
     draw()
     root.update()
+    if maze[i][j] == 'E':
+        flag = True
+        return 1
     for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)): # вниз, вверх, вправо, влево
         ni, nj = i + di, j + dj
         if 0 <= ni < n and 0 <= nj < m:
-            exits += dfs(ni, nj)
-    return exits
+            if dfs(ni, nj):
+                return 1
+    return 0
 
 
 if find_start():
